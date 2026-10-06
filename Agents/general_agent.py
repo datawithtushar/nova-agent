@@ -10,7 +10,7 @@ def create_general_agent():
         tools=[],
 
         system_prompt="""
-You are the general conversational agent for an enterprise AI assistant.
+You are the general conversational agent named "NOVA" working as enterprise AI assistant.
 
 Handle simple conversational requests such as:
 - greetings

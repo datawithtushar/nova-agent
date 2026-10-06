@@ -1,40 +1,22 @@
 import os
-import sqlite3
-from pathlib import Path
 
+import psycopg2
+from dotenv import load_dotenv
 from langchain.tools import tool
 
 
 # --------------------------------------------------
-# DATABASE DIRECTORY
+# LOAD ENVIRONMENT VARIABLES
 # --------------------------------------------------
 
-DEFAULT_DATA_DIR = (
-    Path(__file__).resolve().parent.parent
-    / "data"
-)
-
-DATA_DIR = Path(
-    os.getenv(
-        "DATA_DIR",
-        str(DEFAULT_DATA_DIR)
-    )
-)
-
-DATA_DIR.mkdir(
-    parents=True,
-    exist_ok=True
-)
+load_dotenv()
 
 
 # --------------------------------------------------
-# DATABASE PATH
+# DATABASE URL
 # --------------------------------------------------
 
-DB_PATH = (
-    DATA_DIR
-    / "tasks.db"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 # --------------------------------------------------
@@ -43,8 +25,13 @@ DB_PATH = (
 
 def get_connection():
 
-    return sqlite3.connect(
-        DB_PATH
+    if not DATABASE_URL:
+        raise ValueError(
+            "DATABASE_URL is not set."
+        )
+
+    return psycopg2.connect(
+        DATABASE_URL
     )
 
 
@@ -61,7 +48,7 @@ def create_task_table():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS tasks (
-            task_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
             status TEXT DEFAULT 'Open',
             priority TEXT DEFAULT 'Medium',
@@ -71,6 +58,8 @@ def create_task_table():
     )
 
     connection.commit()
+
+    cursor.close()
 
     connection.close()
 
@@ -88,7 +77,7 @@ def create_task(
     due_date=None
 ):
 
-    """Create a new task in the SQLite database."""
+    """Create a new task in the PostgreSQL database."""
 
     connection = get_connection()
 
@@ -101,7 +90,8 @@ def create_task(
             priority,
             due_date
         )
-        VALUES (?, ?, ?)
+        VALUES (%s, %s, %s)
+        RETURNING task_id
         """,
         (
             title,
@@ -110,9 +100,11 @@ def create_task(
         )
     )
 
+    task_id = cursor.fetchone()[0]
+
     connection.commit()
 
-    task_id = cursor.lastrowid
+    cursor.close()
 
     connection.close()
 
@@ -142,12 +134,14 @@ def get_tasks():
             status,
             priority,
             due_date
-
         FROM tasks
+        ORDER BY task_id ASC
         """
     )
 
     tasks = cursor.fetchall()
+
+    cursor.close()
 
     connection.close()
 
@@ -169,14 +163,12 @@ def update_tasks(
 
     cursor = connection.cursor()
 
-
     allowed_fields = [
         "title",
         "status",
         "priority",
         "due_date"
     ]
-
 
     for task_id, fields in updates.items():
 
@@ -188,8 +180,8 @@ def update_tasks(
             cursor.execute(
                 f"""
                 UPDATE tasks
-                SET {field_name} = ?
-                WHERE task_id = ?
+                SET {field_name} = %s
+                WHERE task_id = %s
                 """,
                 (
                     new_value,
@@ -197,8 +189,9 @@ def update_tasks(
                 )
             )
 
-
     connection.commit()
+
+    cursor.close()
 
     connection.close()
 

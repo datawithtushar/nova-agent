@@ -1,39 +1,24 @@
 import os
-import sqlite3
-from pathlib import Path
 from datetime import datetime
 
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
-# --------------------------------------------------
-# DATABASE DIRECTORY
-# --------------------------------------------------
-
-DEFAULT_DATA_DIR = (
-    Path(__file__).resolve().parent.parent
-    / "data"
-)
-
-DATA_DIR = Path(
-    os.getenv(
-        "DATA_DIR",
-        str(DEFAULT_DATA_DIR)
-    )
-)
-
-DATA_DIR.mkdir(
-    parents=True,
-    exist_ok=True
-)
+from dotenv import load_dotenv
 
 
 # --------------------------------------------------
-# DATABASE PATH
+# LOAD ENVIRONMENT VARIABLES
 # --------------------------------------------------
 
-DB_PATH = (
-    DATA_DIR
-    / "conversations.db"
-)
+load_dotenv()
+
+
+# --------------------------------------------------
+# DATABASE URL
+# --------------------------------------------------
+
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 # --------------------------------------------------
@@ -42,11 +27,15 @@ DB_PATH = (
 
 def get_connection():
 
-    connection = sqlite3.connect(
-        DB_PATH
-    )
+    if not DATABASE_URL:
 
-    return connection
+        raise ValueError(
+            "DATABASE_URL is not set."
+        )
+
+    return psycopg2.connect(
+        DATABASE_URL
+    )
 
 
 # --------------------------------------------------
@@ -69,8 +58,8 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS conversations (
             thread_id TEXT PRIMARY KEY,
             title TEXT,
-            created_at TEXT,
-            updated_at TEXT
+            created_at TIMESTAMP,
+            updated_at TIMESTAMP
         )
         """
     )
@@ -83,11 +72,11 @@ def create_tables():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS messages (
-            message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message_id SERIAL PRIMARY KEY,
             thread_id TEXT,
             role TEXT,
             content TEXT,
-            created_at TEXT
+            created_at TIMESTAMP
         )
         """
     )
@@ -100,17 +89,19 @@ def create_tables():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS feedback (
-            feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            feedback_id SERIAL PRIMARY KEY,
             thread_id TEXT,
             message_id INTEGER,
             feedback TEXT,
-            created_at TEXT
+            created_at TIMESTAMP
         )
         """
     )
 
 
     connection.commit()
+
+    cursor.close()
 
     connection.close()
 
@@ -129,18 +120,21 @@ def create_conversation(
     cursor = connection.cursor()
 
 
-    now = datetime.now().isoformat()
+    now = datetime.now()
 
 
     cursor.execute(
         """
-        INSERT OR IGNORE INTO conversations (
+        INSERT INTO conversations (
             thread_id,
             title,
             created_at,
             updated_at
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
+
+        ON CONFLICT (thread_id)
+        DO NOTHING
         """,
         (
             thread_id,
@@ -152,6 +146,8 @@ def create_conversation(
 
 
     connection.commit()
+
+    cursor.close()
 
     connection.close()
 
@@ -166,7 +162,6 @@ def save_message(
     content: str
 ):
 
-    # Ensure conversation exists
     create_conversation(
         thread_id=thread_id
     )
@@ -177,7 +172,7 @@ def save_message(
     cursor = connection.cursor()
 
 
-    now = datetime.now().isoformat()
+    now = datetime.now()
 
 
     # ----------------------------------------------
@@ -192,7 +187,7 @@ def save_message(
             content,
             created_at
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         """,
         (
             thread_id,
@@ -210,8 +205,8 @@ def save_message(
     cursor.execute(
         """
         UPDATE conversations
-        SET updated_at = ?
-        WHERE thread_id = ?
+        SET updated_at = %s
+        WHERE thread_id = %s
         """,
         (
             now,
@@ -221,6 +216,8 @@ def save_message(
 
 
     connection.commit()
+
+    cursor.close()
 
     connection.close()
 
@@ -248,7 +245,7 @@ def get_messages(
 
         FROM messages
 
-        WHERE thread_id = ?
+        WHERE thread_id = %s
 
         ORDER BY message_id ASC
         """,
@@ -260,6 +257,8 @@ def get_messages(
 
     rows = cursor.fetchall()
 
+
+    cursor.close()
 
     connection.close()
 
@@ -296,6 +295,8 @@ def get_conversations():
     rows = cursor.fetchall()
 
 
+    cursor.close()
+
     connection.close()
 
 
@@ -317,23 +318,19 @@ def save_feedback(
     cursor = connection.cursor()
 
 
-    now = datetime.now().isoformat()
+    now = datetime.now()
 
 
     # ----------------------------------------------
-    # REMOVE PREVIOUS FEEDBACK
-    # ----------------------------------------------
-    #
-    # Only one feedback value is stored for each
-    # assistant response.
+    # DELETE PREVIOUS FEEDBACK
     # ----------------------------------------------
 
     cursor.execute(
         """
         DELETE FROM feedback
 
-        WHERE thread_id = ?
-        AND message_id = ?
+        WHERE thread_id = %s
+        AND message_id = %s
         """,
         (
             thread_id,
@@ -354,7 +351,7 @@ def save_feedback(
             feedback,
             created_at
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         """,
         (
             thread_id,
@@ -366,6 +363,8 @@ def save_feedback(
 
 
     connection.commit()
+
+    cursor.close()
 
     connection.close()
 
@@ -390,7 +389,7 @@ def delete_conversation(
     cursor.execute(
         """
         DELETE FROM feedback
-        WHERE thread_id = ?
+        WHERE thread_id = %s
         """,
         (
             thread_id,
@@ -405,7 +404,7 @@ def delete_conversation(
     cursor.execute(
         """
         DELETE FROM messages
-        WHERE thread_id = ?
+        WHERE thread_id = %s
         """,
         (
             thread_id,
@@ -420,7 +419,7 @@ def delete_conversation(
     cursor.execute(
         """
         DELETE FROM conversations
-        WHERE thread_id = ?
+        WHERE thread_id = %s
         """,
         (
             thread_id,
@@ -429,6 +428,8 @@ def delete_conversation(
 
 
     connection.commit()
+
+    cursor.close()
 
     connection.close()
 
