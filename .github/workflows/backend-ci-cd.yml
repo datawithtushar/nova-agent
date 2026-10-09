@@ -1,0 +1,33 @@
+name: Nova Backend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "Backend/**"
+      - "Agents/**"
+      - "Graph/**"
+      - "Rag/**"
+      - "Tools/**"
+      - "Governance/**"
+      - "Database/**"
+      - "config.py"
+      - "requirements.txt"
+      - "Dockerfile.backend"
+
+jobs:
+  backend-build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend Docker image
+        run: |
+          docker build -f Dockerfile.backend -t nova-backend-test .
+
+      - name: Trigger backend deployment
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"

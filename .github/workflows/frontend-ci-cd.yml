@@ -1,0 +1,26 @@
+name: Nova Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "UI Interface/**"
+      - "requirements.txt"
+      - "Dockerfile.frontend"
+
+jobs:
+  frontend-build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build frontend Docker image
+        run: |
+          docker build -f Dockerfile.frontend -t nova-frontend-test .
+
+      - name: Trigger frontend deployment
+        run: |
+          curl -X POST "${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL }}"
