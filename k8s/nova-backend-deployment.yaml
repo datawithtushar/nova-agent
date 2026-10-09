@@ -1,5 +1,3 @@
-# k8s/nova-backend-deployment.yaml
-
 apiVersion: apps/v1
 kind: Deployment
 
@@ -21,6 +19,7 @@ spec:
     spec:
       containers:
         - name: nova-backend
+
           image: ghcr.io/datawithtushar/nova-backend:latest
 
           ports:
@@ -29,6 +28,3 @@ spec:
           envFrom:
             - secretRef:
                 name: nova-secrets
-
-            - configMapRef:
-                name: nova-config
