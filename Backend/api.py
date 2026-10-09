@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -12,12 +14,25 @@ from Database.conversation_db import (
 
 
 # --------------------------------------------------
+# LOGGING
+# --------------------------------------------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+
+logger = logging.getLogger("nova-backend")
+
+
+# --------------------------------------------------
 # FASTAPI APP
 # --------------------------------------------------
 
 app = FastAPI(
-    title="Agentic AI Assistant API",
-    version="1.0"
+    title="Nova API",
+    description="Backend API for the Nova multi-agent AI assistant.",
+    version="1.0.0"
 )
 
 
@@ -44,7 +59,9 @@ class FeedbackRequest(BaseModel):
 def health_check():
 
     return {
-        "status": "ok"
+        "status": "ok",
+        "service": "nova-backend",
+        "version": "1.0.0"
     }
 
 
@@ -57,9 +74,31 @@ def chat(request: ChatRequest):
 
     try:
 
+        logger.info(
+            "Chat request received | thread_id=%s",
+            request.thread_id
+        )
+
         result = run_chat(
             question=request.question,
             thread_id=request.thread_id
+        )
+
+        execution_mode = result.get(
+            "execution_mode",
+            "single"
+        )
+
+        selected_agents = result.get(
+            "selected_agents",
+            []
+        )
+
+        logger.info(
+            "Chat completed | thread_id=%s | mode=%s | agents=%s",
+            request.thread_id,
+            execution_mode,
+            selected_agents
         )
 
         return {
@@ -68,15 +107,9 @@ def chat(request: ChatRequest):
                 "No answer was generated."
             ),
 
-            "execution_mode": result.get(
-                "execution_mode",
-                "single"
-            ),
+            "execution_mode": execution_mode,
 
-            "selected_agents": result.get(
-                "selected_agents",
-                []
-            ),
+            "selected_agents": selected_agents,
 
             "sources": result.get(
                 "sources",
@@ -84,11 +117,20 @@ def chat(request: ChatRequest):
             ),
         }
 
-    except Exception as error:
+
+    except Exception:
+
+        logger.exception(
+            "Chat processing failed | thread_id=%s",
+            request.thread_id
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=str(error)
+            detail=(
+                "Nova was unable to process this request. "
+                "Please try again."
+            )
         )
 
 
@@ -118,11 +160,19 @@ def conversations():
             ) in rows
         ]
 
-    except Exception as error:
+
+    except Exception:
+
+        logger.exception(
+            "Unable to retrieve conversations."
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=str(error)
+            detail=(
+                "Unable to load conversations "
+                "at the moment."
+            )
         )
 
 
@@ -154,11 +204,20 @@ def conversation(thread_id: str):
             ) in rows
         ]
 
-    except Exception as error:
+
+    except Exception:
+
+        logger.exception(
+            "Unable to retrieve conversation | thread_id=%s",
+            thread_id
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=str(error)
+            detail=(
+                "Unable to load this conversation "
+                "at the moment."
+            )
         )
 
 
@@ -194,6 +253,13 @@ def feedback(request: FeedbackRequest):
         )
 
 
+        logger.info(
+            "Feedback saved | thread_id=%s | message_id=%s",
+            request.thread_id,
+            request.message_id
+        )
+
+
         return {
             "status": "success",
             "message": "Feedback saved."
@@ -205,11 +271,20 @@ def feedback(request: FeedbackRequest):
         raise
 
 
-    except Exception as error:
+    except Exception:
+
+        logger.exception(
+            "Unable to save feedback | thread_id=%s | message_id=%s",
+            request.thread_id,
+            request.message_id
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=str(error)
+            detail=(
+                "Unable to save feedback "
+                "at the moment."
+            )
         )
 
 
@@ -227,15 +302,29 @@ def remove_conversation(thread_id: str):
         )
 
 
+        logger.info(
+            "Conversation deleted | thread_id=%s",
+            thread_id
+        )
+
+
         return {
             "status": "success",
             "message": "Conversation deleted."
         }
 
 
-    except Exception as error:
+    except Exception:
+
+        logger.exception(
+            "Unable to delete conversation | thread_id=%s",
+            thread_id
+        )
 
         raise HTTPException(
             status_code=500,
-            detail=str(error)
+            detail=(
+                "Unable to delete the conversation "
+                "at the moment."
+            )
         )

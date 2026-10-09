@@ -21,6 +21,7 @@ API_URL = os.getenv(
 
 st.set_page_config(
     page_title="Nova",
+    page_icon="✨",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -173,14 +174,17 @@ if "is_processing" not in st.session_state:
 
 with st.sidebar:
 
-    st.title("Nova")
+    st.title(
+        "✨ Nova"
+    )
 
     st.caption(
         "Networked Orchestrated Virtual Assistant"
     )
 
     st.caption(
-        "Agentic AI workspace for knowledge, analysis, research and connected tools."
+        "Agentic AI workspace for knowledge, "
+        "analysis, research and connected tools."
     )
 
     st.divider()
@@ -310,7 +314,8 @@ with st.sidebar:
                     except Exception:
 
                         st.error(
-                            "Unable to delete conversation."
+                            "Unable to delete the conversation "
+                            "at the moment."
                         )
 
     else:
@@ -499,7 +504,8 @@ for message in history:
                     except Exception:
 
                         st.error(
-                            "Unable to save feedback."
+                            "Unable to save feedback "
+                            "at the moment."
                         )
 
 
@@ -527,7 +533,8 @@ for message in history:
                     except Exception:
 
                         st.error(
-                            "Unable to save feedback."
+                            "Unable to save feedback "
+                            "at the moment."
                         )
 
 
@@ -561,6 +568,10 @@ if prompt:
     audio_file = prompt.audio
 
 
+    # ----------------------------------------------
+    # IMAGE PREVIEW
+    # ----------------------------------------------
+
     if uploaded_files:
 
         for uploaded_file in uploaded_files:
@@ -572,12 +583,20 @@ if prompt:
             )
 
 
+    # ----------------------------------------------
+    # AUDIO PREVIEW
+    # ----------------------------------------------
+
     if audio_file:
 
         st.audio(
             audio_file
         )
 
+
+    # ----------------------------------------------
+    # PROCESS MESSAGE
+    # ----------------------------------------------
 
     if question:
 
@@ -609,13 +628,17 @@ if prompt:
                     )
 
 
+                    # ----------------------------------
+                    # CALL FASTAPI
+                    # ----------------------------------
+
                     response = requests.post(
                         f"{API_URL}/chat",
                         json={
                             "question": question,
                             "thread_id": thread_id
                         },
-                        timeout=120
+                        timeout=180
                     )
 
 
@@ -637,7 +660,7 @@ if prompt:
 
                     answer = result.get(
                         "answer",
-                        "No answer was generated."
+                        "Nova was unable to generate a response."
                     )
 
 
@@ -664,41 +687,59 @@ if prompt:
                 st.rerun()
 
 
+            # ------------------------------------------
+            # BACKEND NOT REACHABLE
+            # ------------------------------------------
+
             except requests.exceptions.ConnectionError:
 
                 st.session_state.is_processing = False
 
                 st.error(
-                    "Unable to connect to the Nova backend. "
-                    "Please make sure the FastAPI service is running."
+                    "Nova is temporarily unavailable. "
+                    "Please try again in a moment."
                 )
 
+
+            # ------------------------------------------
+            # TIMEOUT
+            # ------------------------------------------
 
             except requests.exceptions.Timeout:
 
                 st.session_state.is_processing = False
 
                 st.error(
-                    "The request took longer than expected. "
+                    "This request is taking longer than expected. "
                     "Please try again."
                 )
 
 
-            except requests.exceptions.HTTPError as error:
+            # ------------------------------------------
+            # BACKEND ERROR
+            # ------------------------------------------
+
+            except requests.exceptions.HTTPError:
 
                 st.session_state.is_processing = False
 
                 st.error(
-                    f"The backend returned an error: {error}"
+                    "Nova was unable to complete the request. "
+                    "Please try again in a moment."
                 )
 
 
-            except Exception as error:
+            # ------------------------------------------
+            # UNKNOWN ERROR
+            # ------------------------------------------
+
+            except Exception:
 
                 st.session_state.is_processing = False
 
                 st.error(
-                    f"Something went wrong: {error}"
+                    "Something went wrong while processing your request. "
+                    "Please try again."
                 )
 
 
