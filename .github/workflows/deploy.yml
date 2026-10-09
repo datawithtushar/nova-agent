@@ -1,0 +1,23 @@
+name: Nova CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend Docker image
+        run: |
+          docker build -f Dockerfile.backend -t nova-backend-test .
+
+      - name: Trigger Render deployment
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
