@@ -17,7 +17,16 @@ jobs:
         run: |
           docker build -f Dockerfile.backend -t nova-backend-test .
 
-      - name: Trigger Render deployment
+      - name: Build frontend Docker image
+        run: |
+          docker build -f Dockerfile.frontend -t nova-frontend-test .
+
+      - name: Trigger backend deployment
         if: success()
         run: |
           curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      - name: Trigger frontend deployment
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL }}"
