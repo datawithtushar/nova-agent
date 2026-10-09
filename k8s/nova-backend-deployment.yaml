@@ -1,0 +1,34 @@
+# k8s/nova-backend-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: nova-backend
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: nova-backend
+
+  template:
+    metadata:
+      labels:
+        app: nova-backend
+
+    spec:
+      containers:
+        - name: nova-backend
+          image: ghcr.io/datawithtushar/nova-backend:latest
+
+          ports:
+            - containerPort: 8000
+
+          envFrom:
+            - secretRef:
+                name: nova-secrets
+
+            - configMapRef:
+                name: nova-config
